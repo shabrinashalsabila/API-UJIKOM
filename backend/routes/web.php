@@ -38,6 +38,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::put('/kategori/{id}', [AdminController::class, 'updateKategori'])->name('kategori.update');
     Route::delete('/kategori/{id}', [AdminController::class, 'destroyKategori'])->name('kategori.destroy');
 
+    // CRUD Log Aktivitas
+    Route::get('/logaktivitas', [AdminController::class, 'indexLogAktivitas'])->name('logaktivitas.index');
+
     // CRUD Peminjaman
     Route::get('/peminjaman', [AdminController::class, 'indexPeminjaman'])->name('peminjaman.index');
     Route::get('/peminjaman/create', [AdminController::class, 'createPeminjaman'])->name('peminjaman.create');
