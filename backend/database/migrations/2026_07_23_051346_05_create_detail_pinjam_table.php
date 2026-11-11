@@ -17,7 +17,11 @@ return new class extends Migration
             $table->foreignId('alat_id')->constrained('alat')->cascadeOnDelete();
             $table->integer('jumlah')->default(1);
             $table->timestamps();
+<<<<<<< HEAD
         }); 
+=======
+        });
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
     }
 
     /**

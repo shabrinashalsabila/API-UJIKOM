@@ -21,7 +21,11 @@
 
     <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
 
+<<<<<<< HEAD
         <!-- Header, Search, dan Tambah User -->
+=======
+        <!-- Header, Form Search, & Tombol Tambah User -->
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
         <div class="p-5 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
             <h3 class="text-lg font-bold text-gray-800">
@@ -79,26 +83,50 @@
                 <thead>
                     <tr class="bg-gray-100 text-gray-600 text-sm uppercase tracking-wider">
 
+<<<<<<< HEAD
+=======
+                        <!-- PROFILE -->
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
                         <th class="py-3 px-4 border-b">
                             Profile
                         </th>
 
+<<<<<<< HEAD
+=======
+                        <!-- NAMA -->
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
                         <th class="py-3 px-4 border-b">
                             Nama
                         </th>
 
+<<<<<<< HEAD
+=======
+                        <!-- EMAIL -->
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
                         <th class="py-3 px-4 border-b">
                             Email
                         </th>
 
+<<<<<<< HEAD
+=======
+                        <!-- ROLE -->
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
                         <th class="py-3 px-4 border-b">
                             Role / Hak Akses
                         </th>
 
+<<<<<<< HEAD
+=======
+                        <!-- NO HP -->
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
                         <th class="py-3 px-4 border-b">
                             No. HP
                         </th>
 
+<<<<<<< HEAD
+=======
+                        <!-- AKSI -->
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
                         <th class="py-3 px-4 border-b">
                             Aksi
                         </th>
@@ -115,6 +143,7 @@
                             <!-- PROFILE -->
                             <td class="py-3 px-4 border-b">
 
+<<<<<<< HEAD
                                 @if($user->foto_profile && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->foto_profile))
 
                                     <img
@@ -135,6 +164,20 @@
                                     </div>
 
                                 @endif
+=======
+                                <div class="flex items-center">
+
+                                    <div
+                                        class="w-11 h-11 rounded-full flex items-center justify-center
+                                        bg-blue-100 text-blue-700
+                                        font-bold text-base uppercase
+                                        border border-blue-200"
+                                    >
+                                        {{ strtoupper(substr($user->name, 0, 1)) }}
+                                    </div>
+
+                                </div>
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
 
                             </td>
 
@@ -220,6 +263,10 @@
                     @empty
 
                         <tr>
+<<<<<<< HEAD
+=======
+
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
                             <td colspan="6" class="py-4 text-center text-gray-500">
 
                                 @if(request('search'))
@@ -235,6 +282,10 @@
                                 @endif
 
                             </td>
+<<<<<<< HEAD
+=======
+
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
                         </tr>
 
                     @endforelse
@@ -256,4 +307,8 @@
 
     </div>
 
+<<<<<<< HEAD
 @endsection
+=======
+@endsection
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e

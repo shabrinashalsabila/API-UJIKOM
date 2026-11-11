@@ -15,7 +15,11 @@ class PeminjamanSeeder extends Seeder
  
                 'tgl_pinjam' => '2026-06-01', 
                 'tgl_kembali_plan' => '2026-06-04', 
+<<<<<<< HEAD
                 'status' => 'dikembalikan',  
+=======
+                'status' => 'dikembalikan', 
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
             ], 
             [ 
                 'user_id' => 4, // Siti (Peminjam) 

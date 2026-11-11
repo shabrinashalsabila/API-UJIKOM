@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+<<<<<<< HEAD
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+=======
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
 
 class AuthController extends Controller
 {
@@ -28,7 +31,11 @@ class AuthController extends Controller
 
             $user = Auth::user();
 
+<<<<<<< HEAD
             // Redirect berdasarkan Role
+=======
+            // Redirect berdasarkan Role sesuai matriks Anda
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
             if ($user->role === 'admin') {
                 return redirect()->route('admin.dashboard');
             } elseif ($user->role === 'petugas') {
@@ -38,9 +45,13 @@ class AuthController extends Controller
             }
 
             Auth::logout();
+<<<<<<< HEAD
 
             return redirect()->route('login')
                 ->with('error', 'Role tidak dikenali.');
+=======
+            return redirect()->route('login')->with('error', 'Role tidak dikenali.');
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
         }
 
         return back()->withErrors([
@@ -48,6 +59,7 @@ class AuthController extends Controller
         ])->onlyInput('email');
     }
 
+<<<<<<< HEAD
     // Menampilkan Form Register
     public function showRegisterForm()
     {
@@ -82,11 +94,16 @@ class AuthController extends Controller
             ->with('success', 'Registrasi berhasil! Silakan login akun kamu.');
     }
 
+=======
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
     // Proses Logout
     public function logout(Request $request)
     {
         Auth::logout();
+<<<<<<< HEAD
 
+=======
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

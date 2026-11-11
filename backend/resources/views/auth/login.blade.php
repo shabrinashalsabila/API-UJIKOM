@@ -27,6 +27,7 @@
             </div>
         @endif
 
+<<<<<<< HEAD
 
         @if (session('success'))
     <div class="alert alert-success">
@@ -34,6 +35,8 @@
     </div>
         @endif
 
+=======
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
         <form action="{{ route('login') }}" method="POST">
             @csrf
 

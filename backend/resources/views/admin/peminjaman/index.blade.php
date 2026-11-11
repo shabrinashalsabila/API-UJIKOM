@@ -69,7 +69,10 @@
                                     @endforeach
                                 </ul>
                             </td>
+<<<<<<< HEAD
 
+=======
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
                             <td class="py-3 px-4 border-b text-xs text-gray-600">
                                 <span class="block">Pinjam: {{ $peminjaman->tgl_pinjam }}</span>
                                 <span class="block font-semibold">Rencana: {{ $peminjaman->tgl_kembali_plan }}</span>
@@ -83,7 +86,10 @@
                                     {{ ucfirst($peminjaman->status) }}
                                 </span>
                             </td>
+<<<<<<< HEAD
                    
+=======
+>>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
                             <td class="py-3 px-4 border-b">
                                 <div class="flex flex-col space-y-2">
                                     <form action="{{ route('admin.peminjaman.updateStatus', $peminjaman->id) }}" method="POST" class="flex items-center space-x-1">
