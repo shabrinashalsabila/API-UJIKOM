@@ -4,6 +4,11 @@
 @section('header-title', 'Manajemen Transaksi Peminjaman')
 
 @section('content')
+    <!-- Banner Error Alert (Termasuk error dari JS) -->
+    <div id="js-error-alert" class="hidden mb-4 bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg shadow-sm text-sm">
+        <span id="js-error-message"></span>
+    </div>
+
     @if(session('success'))
         <div class="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-lg shadow-sm text-sm">
             {{ session('success') }}
@@ -60,19 +65,19 @@
                                 {{ $peminjaman->user->name ?? 'User Dihapus' }}
                             </td>
                             <td class="py-3 px-4 border-b">
-                                <ul class="list-disc list-inside space-y-1">
-                                    @foreach($peminjaman->detailPinjams as $detail)
-                                        <li>
-                                            <span class="font-semibold">{{ $detail->alat->nama_alat ?? 'Alat Dihapus' }}</span>
-                                            <span class="text-xs bg-gray-200 px-1.5 py-0.5 rounded">({{ $detail->jumlah }} pcs)</span>
-                                        </li>
-                                    @endforeach
-                                </ul>
+                                @if($peminjaman->detailPinjams && $peminjaman->detailPinjams->count() > 0)
+                                    <ul class="list-disc list-inside space-y-1">
+                                        @foreach($peminjaman->detailPinjams as $detail)
+                                            <li>
+                                                <span class="font-semibold">{{ $detail->alat->nama_alat ?? 'Alat Dihapus' }}</span>
+                                                <span class="text-xs bg-gray-200 px-1.5 py-0.5 rounded">({{ $detail->jumlah }} pcs)</span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    <span class="text-xs text-gray-400 italic">Tidak ada detail alat</span>
+                                @endif
                             </td>
-<<<<<<< HEAD
-
-=======
->>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
                             <td class="py-3 px-4 border-b text-xs text-gray-600">
                                 <span class="block">Pinjam: {{ $peminjaman->tgl_pinjam }}</span>
                                 <span class="block font-semibold">Rencana: {{ $peminjaman->tgl_kembali_plan }}</span>
@@ -86,16 +91,15 @@
                                     {{ ucfirst($peminjaman->status) }}
                                 </span>
                             </td>
-<<<<<<< HEAD
-                   
-=======
->>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
                             <td class="py-3 px-4 border-b">
                                 <div class="flex flex-col space-y-2">
+                                    <!-- Form Ubah Status -->
                                     <form action="{{ route('admin.peminjaman.updateStatus', $peminjaman->id) }}" method="POST" class="flex items-center space-x-1">
                                         @csrf
                                         @method('PUT')
-                                        <select name="status" onchange="this.form.submit()" class="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none">
+                                        <select name="status" 
+                                            onchange="handleStatusChange(this, '{{ $peminjaman->status }}')" 
+                                            class="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
                                             <option value="diajukan" {{ $peminjaman->status == 'diajukan' ? 'selected' : '' }}>Diajukan</option>
                                             <option value="dipinjam" {{ $peminjaman->status == 'dipinjam' ? 'selected' : '' }}>Dipinjam</option>
                                             <option value="selesai" {{ $peminjaman->status == 'selesai' ? 'selected' : '' }}>Selesai</option>
@@ -103,6 +107,7 @@
                                         </select>
                                     </form>
 
+                                    <!-- Tombol Hapus -->
                                     <form action="{{ route('admin.peminjaman.destroy', $peminjaman->id) }}" method="POST"
                                         onsubmit="return confirm('Yakin ingin menghapus data peminjaman ini?')">
                                         @csrf
@@ -127,4 +132,26 @@
             {{ $peminjamans->links() }}
         </div>
     </div>
+
+    <script>
+        function handleStatusChange(selectElement, currentStatus) {
+            const selectedStatus = selectElement.value;
+            const alertBox = document.getElementById('js-error-alert');
+            const alertMsg = document.getElementById('js-error-message');
+
+            if (currentStatus === 'selesai' && selectedStatus === 'diajukan') {
+                // Tampilkan banner peringatan di atas
+                alertMsg.innerText = 'Transaksi yang sudah selesai tidak dapat diubah kembali.';
+                alertBox.classList.remove('hidden');
+
+                // Kembalikan nilai dropdown ke posisi semula
+                selectElement.value = currentStatus;
+                return;
+            }
+
+            // Sembunyikan banner jika aksi valid
+            alertBox.classList.add('hidden');
+            selectElement.form.submit();
+        }
+    </script>
 @endsection

@@ -129,11 +129,3 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/profil', [ProfileController::class, 'update'])
         ->name('profile.update');
 });
-
-// Peminjam profile
-Route::middleware('auth')->group(function(){
-    Route::get('/profile', function () {
-        return redirect()->route('profile.edit');
-    })->name('profile');
-
-});
