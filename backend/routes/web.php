@@ -5,10 +5,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\PetugasController;
 use App\Http\Controllers\PeminjamController;
 use App\Http\Controllers\AuthController;
-<<<<<<< HEAD
 use App\Http\Controllers\ProfileController;
-=======
->>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
 
 Route::get('/', function () {
     return view('welcome');
@@ -89,7 +86,6 @@ Route::middleware(['auth', 'role:peminjam'])->prefix('peminjam')->name('peminjam
     Route::get('/peminjaman/riwayat', [PeminjamController::class, 'riwayatPeminjaman'])->name('peminjaman.riwayat');
 });
 
-<<<<<<< HEAD
 // Peminjam profile
 Route::middleware('auth')->group(function(){
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile');
@@ -141,13 +137,3 @@ Route::middleware('auth')->group(function(){
     })->name('profile');
 
 });
-=======
-// Route Tamu (Belum Login)
-Route::middleware('guest')->group(function () {
-    Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
-});
-
-// Route Logout (Harus sudah login)
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
->>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e

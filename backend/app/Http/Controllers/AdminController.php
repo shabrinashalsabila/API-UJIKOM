@@ -374,7 +374,6 @@ class AdminController extends Controller
             ->with('success', 'Data user berhasil diperbarui.');
     }
 
-<<<<<<< HEAD
    public function destroyUser($id)
 {
     $user = User::findOrFail($id);
@@ -405,33 +404,6 @@ if ($hasActiveLoan) {
         ->route('admin.user.index')
         ->with('success', 'User berhasil dihapus.');
 }
-=======
-    public function destroyUser($id)
-    {
-        $user = User::findOrFail($id);
-
-        if ($user->id === auth()->id()) {
-            return redirect()
-                ->route('admin.user.index')
-                ->with('error', 'Anda tidak dapat menghapus akun yang sedang digunakan.');
-        }
-
-        $hasActivity = LogAktivitas::where('user_id', $user->id)->exists();
-
-        if ($hasActivity) {
-            return redirect()
-                ->route('admin.user.index')
-                ->with('error', 'User tidak dapat dihapus karena masih memiliki aktivitas pada sistem.');
-        }
-
-        $user->delete();
-
-        return redirect()
-            ->route('admin.user.index')
-            ->with('success', 'User berhasil dihapus.');
-    }
-
->>>>>>> 910a5db3b8915f0e8467a9af53a060db3e0fe71e
     // ==========================================
     // TRANSAKSI PEMINJAMAN
     // ==========================================
