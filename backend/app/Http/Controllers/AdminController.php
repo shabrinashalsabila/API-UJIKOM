@@ -1,0 +1,721 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Alat;
+use App\Models\Kategori;
+use App\Models\User;
+use App\Models\LogAktivitas;
+use App\Models\Peminjaman;
+use App\Models\DetailPinjam;
+use App\Models\Pengembalian;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Database\QueryException;
+use Carbon\Carbon;
+
+class AdminController extends Controller
+{
+    // ==========================================
+    // DASHBOARD & LOG
+    // ==========================================
+    public function index()
+    {
+        $totalUser = User::count();
+        $totalKategori = Kategori::count();
+        $totalAlat = Alat::count();
+        $totalPeminjaman = Peminjaman::count();
+        $totalPengembalian = Pengembalian::count();
+        $totalLogAktivitas = LogAktivitas::count();
+
+        return view('admin.dashboard', compact(
+            'totalUser',
+            'totalKategori',
+            'totalAlat',
+            'totalPeminjaman',
+            'totalPengembalian',
+            'totalLogAktivitas'
+        ));
+    }
+
+    public function indexLogAktivitas(Request $request)
+    {
+        $search = $request->input('search');
+
+        $logs = LogAktivitas::with('user')
+            ->when($search, function ($query, $search) {
+                $query->where('aktivitas', 'like', '%' . $search . '%')
+                    ->orWhereHas('user', function ($q) use ($search) {
+                        $q->where('name', 'like', '%' . $search . '%');
+                    });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.logaktivitas.index', compact('logs', 'search'));
+    }
+
+    // ==========================================
+    // CRUD ALAT
+    // ==========================================
+    public function indexAlat(Request $request)
+    {
+        $search = $request->input('search');
+
+        $alats = Alat::with('kategori')
+            ->when($search, function ($query, $search) {
+                return $query->where('nama_alat', 'like', "%{$search}%")
+                    ->orWhere('status_kondisi', 'like', "%{$search}%")
+                    ->orWhereHas('kategori', function ($q) use ($search) {
+                        $q->where('nama_kategori', 'like', "%{$search}%");
+                    });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.alat.index', compact('alats', 'search'));
+    }
+
+    public function createAlat()
+    {
+        $kategoris = Kategori::all();
+
+        return view('admin.alat.create', compact('kategoris'));
+    }
+
+    public function storeAlat(Request $request)
+    {
+        $request->validate([
+            'nama_alat'      => 'required|string|max:255',
+            'kategori_id'    => 'required|exists:kategori,id',
+            'stok'           => 'required|integer|min:0',
+            'status_kondisi' => 'required|string|max:100',
+            'deskripsi'      => 'nullable|string',
+            'gambar'         => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+        ]);
+
+        $data = $request->only([
+            'nama_alat',
+            'kategori_id',
+            'stok',
+            'status_kondisi',
+            'deskripsi'
+        ]);
+
+        if ($request->hasFile('gambar')) {
+            $file = $request->file('gambar');
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('storage/alat'), $filename);
+            $data['gambar'] = 'storage/alat/' . $filename;
+        }
+
+        Alat::create($data);
+
+        return redirect()
+            ->route('admin.alat.index')
+            ->with('success', 'Data alat berhasil ditambahkan.');
+    }
+
+    public function editAlat($id)
+    {
+        $alat = Alat::findOrFail($id);
+        $kategoris = Kategori::all();
+
+        return view('admin.alat.edit', compact('alat', 'kategoris'));
+    }
+
+    public function updateAlat(Request $request, $id)
+    {
+        $alat = Alat::findOrFail($id);
+
+        $request->validate([
+            'nama_alat'      => 'required|string|max:255',
+            'kategori_id'    => 'required|exists:kategori,id',
+            'stok'           => 'required|integer|min:0',
+            'status_kondisi' => 'required|string|max:100',
+            'deskripsi'      => 'nullable|string',
+            'gambar'         => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+        ]);
+
+        $data = $request->only([
+            'nama_alat',
+            'kategori_id',
+            'stok',
+            'status_kondisi',
+            'deskripsi'
+        ]);
+
+        if ($request->hasFile('gambar')) {
+            if ($alat->gambar && File::exists(public_path($alat->gambar))) {
+                File::delete(public_path($alat->gambar));
+            }
+
+            $file = $request->file('gambar');
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('storage/alat'), $filename);
+            $data['gambar'] = 'storage/alat/' . $filename;
+        }
+
+        $alat->update($data);
+
+        return redirect()
+            ->route('admin.alat.index')
+            ->with('success', 'Data alat berhasil diperbarui.');
+    }
+
+    public function destroyAlat($id)
+    {
+        $alat = Alat::findOrFail($id);
+
+        // Cek 1: Validasi manual jika sedang dipinjam/transaksi belum selesai
+        $sedangDipinjam = DetailPinjam::where('alat_id', $alat->id)
+            ->whereHas('peminjaman', function ($query) {
+                $query->whereIn('status', ['diajukan', 'dipinjam', 'telat']);
+            })
+            ->exists();
+
+        if ($sedangDipinjam) {
+            return redirect()
+                ->route('admin.alat.index')
+                ->with('error', 'Alat tidak dapat dihapus karena sedang dipinjam/terikat transaksi aktif');
+        }
+
+        // Cek 2: Terapkan try-catch untuk menangkap constraint error database
+        try {
+            if ($alat->gambar && File::exists(public_path($alat->gambar))) {
+                File::delete(public_path($alat->gambar));
+            }
+
+            $alat->delete();
+
+            return redirect()
+                ->route('admin.alat.index')
+                ->with('success', 'Data alat berhasil dihapus.');
+
+        } catch (QueryException $e) {
+            return redirect()
+                ->route('admin.alat.index')
+                ->with('error', 'Alat tidak dapat dihapus karena sedang dipinjam/terikat transaksi aktif');
+        }
+    }
+
+    // ==========================================
+    // CRUD KATEGORI
+    // ==========================================
+    public function indexKategori(Request $request)
+    {
+        $search = $request->input('search');
+
+        $kategoris = Kategori::when($search, function ($query, $search) {
+                return $query->where('nama_kategori', 'like', "%{$search}%");
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.kategori.index', compact('kategoris', 'search'));
+    }
+
+    public function createKategori()
+    {
+        return view('admin.kategori.create');
+    }
+
+    public function storeKategori(Request $request)
+    {
+        $request->validate([
+            'nama_kategori' => 'required|string|max:255|unique:kategori,nama_kategori',
+        ]);
+
+        Kategori::create($request->only('nama_kategori'));
+
+        return redirect()
+            ->route('admin.kategori.index')
+            ->with('success', 'Kategori berhasil ditambahkan.');
+    }
+
+    public function editKategori($id)
+    {
+        $kategori = Kategori::findOrFail($id);
+
+        return view('admin.kategori.edit', compact('kategori'));
+    }
+
+    public function updateKategori(Request $request, $id)
+    {
+        $kategori = Kategori::findOrFail($id);
+
+        $request->validate([
+            'nama_kategori' => 'required|string|max:255|unique:kategori,nama_kategori,' . $id,
+        ]);
+
+        $kategori->update($request->only('nama_kategori'));
+
+        return redirect()
+            ->route('admin.kategori.index')
+            ->with('success', 'Kategori berhasil diperbarui.');
+    }
+
+    public function destroyKategori($id)
+    {
+        $kategori = Kategori::findOrFail($id);
+
+        $hasAlat = Alat::where('kategori_id', $kategori->id)->exists();
+
+        if ($hasAlat) {
+            return redirect()
+                ->route('admin.kategori.index')
+                ->with('error', 'Kategori tidak dapat dihapus karena masih digunakan oleh data alat.');
+        }
+
+        $kategori->delete();
+
+        return redirect()
+            ->route('admin.kategori.index')
+            ->with('success', 'Kategori berhasil dihapus.');
+    }
+
+    // ==========================================
+    // USER MANAGEMENT
+    // ==========================================
+    public function indexUser(Request $request)
+    {
+        $search = $request->input('search');
+
+        $users = User::when($search, function ($query, $search) {
+            return $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('no_hp', 'like', "%{$search}%")
+                    ->orWhere('role', 'like', "%{$search}%");
+            });
+        })
+        ->latest()
+        ->paginate(10)
+        ->withQueryString();
+
+        return view('admin.user.index', compact('users', 'search'));
+    }
+
+    public function createUser()
+    {
+        return view('admin.user.create');
+    }
+
+    public function storeUser(Request $request)
+    {
+        $request->validate([
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|string|email|max:255|unique:users,email',
+            'password' => 'required|string|min:8',
+            'role'     => 'required|in:admin,petugas,peminjam',
+            'no_hp'    => 'nullable|numeric|digits_between:10,13',
+        ], [
+            'no_hp.numeric'        => 'Nomor HP harus berupa angka.',
+            'no_hp.digits_between' => 'Nomor HP harus berjumlah antara 10 sampai 13 digit.',
+        ]);
+
+        User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => bcrypt($request->password),
+            'role'     => $request->role,
+            'no_hp'    => $request->no_hp,
+        ]);
+
+        return redirect()
+            ->route('admin.user.index')
+            ->with('success', 'User berhasil ditambahkan.');
+    }
+
+    public function editUser($id)
+    {
+        $user = User::findOrFail($id);
+
+        return view('admin.user.edit', compact('user'));
+    }
+
+    public function updateUser(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        $request->validate([
+            'name'  => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $id,
+            'role'  => 'required|in:admin,petugas,peminjam',
+            'no_hp' => 'nullable|numeric|digits_between:10,13',
+        ], [
+            'no_hp.numeric'        => 'Nomor HP harus berupa angka.',
+            'no_hp.digits_between' => 'Nomor HP harus berjumlah antara 10 sampai 13 digit.',
+        ]);
+
+        $data = [
+            'name'  => $request->name,
+            'email' => $request->email,
+            'role'  => $request->role,
+            'no_hp' => $request->no_hp,
+        ];
+
+        if ($request->filled('password')) {
+            $request->validate([
+                'password' => 'string|min:8'
+            ]);
+
+            $data['password'] = bcrypt($request->password);
+        }
+
+        $user->update($data);
+
+        return redirect()
+            ->route('admin.user.index')
+            ->with('success', 'Data user berhasil diperbarui.');
+    }
+
+   public function destroyUser($id)
+{
+    $user = User::findOrFail($id);
+
+    if ($user->id === auth()->id()) {
+        return redirect()
+            ->route('admin.user.index')
+            ->with('error', 'Anda tidak dapat menghapus akun yang sedang digunakan.');
+    }
+
+    // Cek apakah masih ada peminjaman yang belum selesai
+   $hasActiveLoan = Peminjaman::where('user_id', $user->id)
+    ->where(function ($query) {
+        $query->whereNull('status')
+              ->orWhere('status', '!=', 'selesai');
+    })
+    ->exists();
+
+if ($hasActiveLoan) {
+    return redirect()
+        ->route('admin.user.index')
+        ->with('error', 'User tidak dapat dihapus karena masih memiliki peminjaman yang belum selesai.');
+}
+
+    $user->delete();
+
+    return redirect()
+        ->route('admin.user.index')
+        ->with('success', 'User berhasil dihapus.');
+}
+    // ==========================================
+    // TRANSAKSI PEMINJAMAN
+    // ==========================================
+    public function indexPeminjaman(Request $request)
+    {
+        $search = $request->input('search');
+
+        $peminjamans = Peminjaman::with([
+                'user',
+                'detailPinjams.alat'
+            ])
+            ->when($search, function ($query, $search) {
+                return $query->where('status', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('detailPinjams.alat', function ($q) use ($search) {
+                        $q->where('nama_alat', 'like', "%{$search}%");
+                    });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.peminjaman.index', compact('peminjamans', 'search'));
+    }
+
+    public function createPeminjaman()
+    {
+        $users = User::where('role', 'peminjam')->get();
+        $alats = Alat::where('stok', '>', 0)->get();
+
+        return view('admin.peminjaman.create', compact('users', 'alats'));
+    }
+
+    public function storePeminjaman(Request $request)
+    {
+        $request->validate([
+            'user_id'          => 'required|exists:users,id',
+            'tgl_pinjam'       => 'required|date',
+            'tgl_kembali_plan' => 'required|date|after_or_equal:tgl_pinjam',
+            'alat_id'          => 'required|array|min:1',
+            'alat_id.*'        => 'required|exists:alat,id',
+            'jumlah'           => 'required|array|min:1',
+            'jumlah.*'         => 'required|integer|min:1',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $peminjaman = Peminjaman::create([
+                'user_id'          => $request->user_id,
+                'tgl_pinjam'       => $request->tgl_pinjam,
+                'tgl_kembali_plan' => $request->tgl_kembali_plan,
+                'status'           => 'diajukan',
+            ]);
+
+            foreach ($request->alat_id as $index => $alatId) {
+                $jumlahPinjam = $request->jumlah[$index] ?? 1;
+
+                $alat = Alat::findOrFail($alatId);
+
+                if ($alat->stok < $jumlahPinjam) {
+                    throw new \Exception(
+                        "Stok alat '{$alat->nama_alat}' tidak mencukupi untuk jumlah dipinjam."
+                    );
+                }
+
+                DetailPinjam::create([
+                    'peminjaman_id' => $peminjaman->id,
+                    'alat_id'       => $alatId,
+                    'jumlah'        => $jumlahPinjam,
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()
+                ->route('admin.peminjaman.index')
+                ->with('success', 'Data peminjaman berhasil diajukan.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()
+                ->withInput()
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    public function updateStatusPeminjaman(Request $request, $id)
+    {
+        $peminjaman = Peminjaman::with('detailPinjams.alat')
+            ->findOrFail($id);
+
+        $request->validate([
+            'status' => 'required|in:diajukan,dipinjam,selesai,telat',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $statusLama = $peminjaman->status;
+            $statusBaru = $request->status;
+
+            if ($statusLama !== 'dipinjam' && $statusBaru === 'dipinjam') {
+                foreach ($peminjaman->detailPinjams as $detail) {
+                    $alat = $detail->alat;
+
+                    if (!$alat || $alat->stok < $detail->jumlah) {
+                        $namaAlat = $alat ? $alat->nama_alat : 'Alat tidak ditemukan';
+                        throw new \Exception("Stok alat {$namaAlat} tidak mencukupi untuk dipinjam.");
+                    }
+
+                    $alat->decrement('stok', $detail->jumlah);
+                }
+            } elseif ($statusLama === 'dipinjam' && $statusBaru === 'selesai') {
+                foreach ($peminjaman->detailPinjams as $detail) {
+                    if ($detail->alat) {
+                        $detail->alat->increment('stok', $detail->jumlah);
+                    }
+                }
+            }
+
+            $peminjaman->update([
+                'status' => $statusBaru
+            ]);
+
+            DB::commit();
+
+            return redirect()
+                ->route('admin.peminjaman.index')
+                ->with('success', 'Status peminjaman berhasil diperbarui.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    // ==========================================
+    // HAPUS PEMINJAMAN SELESAI
+    // ==========================================
+    public function destroyPeminjaman($id)
+    {
+        $peminjaman = Peminjaman::with('detailPinjams')
+            ->findOrFail($id);
+
+        if ($peminjaman->status !== 'selesai') {
+            return redirect()
+                ->route('admin.peminjaman.index')
+                ->with('error', 'Peminjaman hanya dapat dihapus jika statusnya sudah selesai.');
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $peminjaman->detailPinjams()->delete();
+            $peminjaman->delete();
+
+            DB::commit();
+
+            return redirect()
+                ->route('admin.peminjaman.index')
+                ->with('success', 'Data peminjaman yang sudah selesai berhasil dihapus.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return redirect()
+                ->route('admin.peminjaman.index')
+                ->with('error', 'Data peminjaman gagal dihapus: ' . $e->getMessage());
+        }
+    }
+
+    // ==========================================
+    // TRANSAKSI PENGEMBALIAN
+    // ==========================================
+    public function indexPengembalian(Request $request)
+    {
+        $search = $request->input('search');
+
+        $pengembalians = Pengembalian::with([
+                'peminjaman.user',
+                'peminjaman.detailPinjams.alat',
+                'petugas'
+            ])
+            ->when($search, function ($query, $search) {
+                return $query->where('kondisi_kembali', 'like', "%{$search}%")
+                    ->orWhereHas('peminjaman.user', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('peminjaman.detailPinjams.alat', function ($q) use ($search) {
+                        $q->where('nama_alat', 'like', "%{$search}%");
+                    });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.pengembalian.index', compact('pengembalians', 'search'));
+    }
+
+    public function createPengembalian()
+    {
+        $peminjamans = Peminjaman::with([
+                'user',
+                'detailPinjams.alat'
+            ])
+            ->whereIn('status', ['dipinjam', 'telat'])
+            ->whereDoesntHave('pengembalian')
+            ->get();
+
+        return view('admin.pengembalian.create', compact('peminjamans'));
+    }
+
+    public function storePengembalian(Request $request)
+    {
+        $request->validate([
+            'peminjaman_id'   => 'required|exists:peminjaman,id',
+            'tgl_kembali'     => 'required|date',
+            'kondisi_kembali' => 'required|string|max:255',
+            'denda_tambahan'  => 'nullable|integer|min:0',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $peminjaman = Peminjaman::with('detailPinjams.alat')
+                ->findOrFail($request->peminjaman_id);
+
+            $tglPlan = Carbon::parse($peminjaman->tgl_kembali_plan);
+            $tglAktual = Carbon::parse($request->tgl_kembali);
+
+            $dendaOtomatis = 0;
+            $tarifDendaPerHari = 5000;
+
+            if ($tglAktual->greaterThan($tglPlan)) {
+                $selisihHari = $tglPlan->diffInDays($tglAktual);
+                $dendaOtomatis = $selisihHari * $tarifDendaPerHari;
+            }
+
+            $dendaTambahan = $request->denda_tambahan ?? 0;
+            $totalDenda = $dendaOtomatis + $dendaTambahan;
+
+            Pengembalian::create([
+                'peminjaman_id'   => $request->peminjaman_id,
+                'tgl_kembali'     => $request->tgl_kembali,
+                'kondisi_kembali' => $request->kondisi_kembali,
+                'denda'           => $totalDenda,
+                'petugas_id'      => auth()->id(),
+            ]);
+
+            $peminjaman->update([
+                'status' => 'selesai'
+            ]);
+
+            foreach ($peminjaman->detailPinjams as $detail) {
+                if ($detail->alat) {
+                    $detail->alat->increment('stok', $detail->jumlah);
+                }
+            }
+
+            DB::commit();
+
+            return redirect()
+                ->route('admin.pengembalian.index')
+                ->with('success', 'Pengembalian berhasil diproses. Denda otomatis terhitung: Rp ' . number_format($totalDenda, 0, ',', '.'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()
+                ->withInput()
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    public function destroyPengembalian($id)
+    {
+        $pengembalian = Pengembalian::with('peminjaman.detailPinjams.alat')->findOrFail($id);
+
+        DB::beginTransaction();
+
+        try {
+            $peminjaman = $pengembalian->peminjaman;
+
+            if ($peminjaman) {
+                $peminjaman->update([
+                    'status' => 'dipinjam'
+                ]);
+
+                foreach ($peminjaman->detailPinjams as $detail) {
+                    if ($detail->alat) {
+                        $detail->alat->decrement('stok', $detail->jumlah);
+                    }
+                }
+            }
+
+            $pengembalian->delete();
+
+            DB::commit();
+
+            return redirect()
+                ->route('admin.pengembalian.index')
+                ->with('success', 'Data pengembalian berhasil dihapus.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()->with('error', $e->getMessage());
+        }
+    }
+}
