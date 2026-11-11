@@ -4,7 +4,7 @@
 @section('header-title', 'Manajemen Transaksi Peminjaman')
 
 @section('content')
-    <!-- Banner Error Alert (Termasuk error dari JS) -->
+    <!-- Banner Error Alert -->
     <div id="js-error-alert" class="hidden mb-4 bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg shadow-sm text-sm">
         <span id="js-error-message"></span>
     </div>
@@ -93,7 +93,7 @@
                             </td>
                             <td class="py-3 px-4 border-b">
                                 <div class="flex flex-col space-y-2">
-                                    <!-- Form Ubah Status -->
+                                    <!-- Form Ubah Status (Dropdown tidak dimatikan/disabled secara otomatis) -->
                                     <form action="{{ route('admin.peminjaman.updateStatus', $peminjaman->id) }}" method="POST" class="flex items-center space-x-1">
                                         @csrf
                                         @method('PUT')
@@ -139,12 +139,12 @@
             const alertBox = document.getElementById('js-error-alert');
             const alertMsg = document.getElementById('js-error-message');
 
-            if (currentStatus === 'selesai' && selectedStatus === 'diajukan') {
-                // Tampilkan banner peringatan di atas
-                alertMsg.innerText = 'Transaksi yang sudah selesai tidak dapat diubah kembali.';
+            // Jika status aslinya sudah selesai, cegah perubahan ke status lain
+            if (currentStatus === 'selesai' && selectedStatus !== 'selesai') {
+                alertMsg.innerText = 'Transaksi yang sudah selesai tidak dapat diubah statusnya lagi.';
                 alertBox.classList.remove('hidden');
 
-                // Kembalikan nilai dropdown ke posisi semula
+                // Kembalikan nilai dropdown ke posisi semula ("selesai")
                 selectElement.value = currentStatus;
                 return;
             }

@@ -170,7 +170,6 @@ class AdminController extends Controller
     {
         $alat = Alat::findOrFail($id);
 
-        // Cek 1: Validasi manual jika sedang dipinjam/transaksi belum selesai
         $sedangDipinjam = DetailPinjam::where('alat_id', $alat->id)
             ->whereHas('peminjaman', function ($query) {
                 $query->whereIn('status', ['diajukan', 'dipinjam', 'telat']);
@@ -183,7 +182,6 @@ class AdminController extends Controller
                 ->with('error', 'Alat tidak dapat dihapus karena sedang dipinjam/terikat transaksi aktif');
         }
 
-        // Cek 2: Terapkan try-catch untuk menangkap constraint error database
         try {
             if ($alat->gambar && File::exists(public_path($alat->gambar))) {
                 File::delete(public_path($alat->gambar));
@@ -374,36 +372,36 @@ class AdminController extends Controller
             ->with('success', 'Data user berhasil diperbarui.');
     }
 
-   public function destroyUser($id)
-{
-    $user = User::findOrFail($id);
+    public function destroyUser($id)
+    {
+        $user = User::findOrFail($id);
 
-    if ($user->id === auth()->id()) {
+        if ($user->id === auth()->id()) {
+            return redirect()
+                ->route('admin.user.index')
+                ->with('error', 'Anda tidak dapat menghapus akun yang sedang digunakan.');
+        }
+
+        $hasActiveLoan = Peminjaman::where('user_id', $user->id)
+            ->where(function ($query) {
+                $query->whereNull('status')
+                      ->orWhere('status', '!=', 'selesai');
+            })
+            ->exists();
+
+        if ($hasActiveLoan) {
+            return redirect()
+                ->route('admin.user.index')
+                ->with('error', 'User tidak dapat dihapus karena masih memiliki peminjaman yang belum selesai.');
+        }
+
+        $user->delete();
+
         return redirect()
             ->route('admin.user.index')
-            ->with('error', 'Anda tidak dapat menghapus akun yang sedang digunakan.');
+            ->with('success', 'User berhasil dihapus.');
     }
 
-    // Cek apakah masih ada peminjaman yang belum selesai
-   $hasActiveLoan = Peminjaman::where('user_id', $user->id)
-    ->where(function ($query) {
-        $query->whereNull('status')
-              ->orWhere('status', '!=', 'selesai');
-    })
-    ->exists();
-
-if ($hasActiveLoan) {
-    return redirect()
-        ->route('admin.user.index')
-        ->with('error', 'User tidak dapat dihapus karena masih memiliki peminjaman yang belum selesai.');
-}
-
-    $user->delete();
-
-    return redirect()
-        ->route('admin.user.index')
-        ->with('success', 'User berhasil dihapus.');
-}
     // ==========================================
     // TRANSAKSI PEMINJAMAN
     // ==========================================
@@ -498,6 +496,15 @@ if ($hasActiveLoan) {
     {
         $peminjaman = Peminjaman::with('detailPinjams.alat')
             ->findOrFail($id);
+
+        // ==========================================
+        // VALIDASI: Jika sudah selesai, cegah perubahan
+        // ==========================================
+        if ($peminjaman->status === 'selesai') {
+            return redirect()
+                ->route('admin.peminjaman.index')
+                ->with('error', 'Transaksi yang sudah selesai tidak dapat diubah statusnya lagi.');
+        }
 
         $request->validate([
             'status' => 'required|in:diajukan,dipinjam,selesai,telat',
